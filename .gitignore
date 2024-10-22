@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Virtual Environment
+venv/
+env/
+.venv/
+.env/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Pytest
+.cache
+
+# Logs
+*.log
+
+
+# Environment Variables
+.env
+
+# Miscellaneous
+*.DS_Store
+Thumbs.db
+
+# PostgreSQL
+*.sql
+*.dump
