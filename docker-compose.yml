@@ -1,0 +1,54 @@
+name: dev
+services:
+  telegram_bot:
+    build: 
+      context: .
+      dockerfile: /Telegram_Bot/Dockerfile
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - API_GATEWAY_URL=${API_GATEWAY_URL}
+    depends_on:
+      - api_gateway  
+
+  admin_service:
+    build: 
+      context: .
+      dockerfile: /Admin_Service/Dockerfile
+    ports:
+      - "8000:8000"
+
+  api_gateway:
+    build: 
+      context: .
+      dockerfile: /API_Gateway/Dockerfile
+    ports:
+      - "8001:8001"
+
+  auth_service:
+    build: 
+      context: .
+      dockerfile: /Auth_Service/Dockerfile
+    ports:
+      - "8002:8002"
+
+  enrolling_service:
+    build: 
+      context: .
+      dockerfile: /Enrolling_Service/Dockerfile
+    ports:
+      - "8003:8003"
+
+  management_service:
+    build: 
+      context: .
+      dockerfile: /Management_Service/Dockerfile
+    ports:
+      - "8004:8004"
+
+  notification_service:
+    build: 
+      context: .
+      dockerfile: /Notification_Service/Dockerfile
+    ports:
+      - "8005:8005"
+
