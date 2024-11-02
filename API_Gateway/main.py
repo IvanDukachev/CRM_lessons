@@ -1,15 +1,14 @@
 from fastapi import FastAPI
 import httpx
 
-app = FastAPI()
+from config import MANAGEMENT_SERVICE_URL, NOTIFICATION_SERVICE_URL
 
-USER_SERVICE_URL = "http://management_service:8004"
-NOTIFICATION_SERVICE_URL = "http://notification_service:8005"
+app = FastAPI()
 
 @app.get("/users")
 async def get_users():
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{USER_SERVICE_URL}/users")
+        response = await client.get(f"{MANAGEMENT_SERVICE_URL}/users")
         return response.json()
 
 @app.post("/send_notification")
