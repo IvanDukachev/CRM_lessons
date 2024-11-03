@@ -11,6 +11,8 @@ from alembic import context
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 from database import metadata
 from Management_Service.models import *
+from Enrolling_Service.models import *
+from Auth_Service.models import *
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
