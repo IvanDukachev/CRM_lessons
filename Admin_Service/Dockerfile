@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код приложения в контейнер
 COPY /Admin_Service .
+COPY config.py .
 
 # Определяем команду для запуска приложения
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

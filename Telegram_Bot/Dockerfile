@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код приложения в контейнер
 COPY /Telegram_Bot .
+COPY config.py .
 
 # Определяем команду для запуска приложения
 CMD ["python", "main.py"]
