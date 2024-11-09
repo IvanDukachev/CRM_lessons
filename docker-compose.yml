@@ -7,15 +7,19 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - API_GATEWAY_URL=${API_GATEWAY_URL}
+      - REDIS_HOST=${REDIS_HOST}  
+      - REDIS_PORT=${REDIS_PORT}    
     depends_on:
-      - api_gateway  
+      - api_gateway
+      - redis  
+    
 
-  admin_service:
-    build: 
-      context: .
-      dockerfile: /Admin_Service/Dockerfile
-    ports:
-      - "8000:8000"
+  # admin_service:
+  #   build: 
+  #     context: .
+  #     dockerfile: /Admin_Service/Dockerfile
+  #   ports:
+  #     - "8000:8000"
 
   api_gateway:
     build: 
@@ -24,19 +28,19 @@ services:
     ports:
       - "8001:8001"
 
-  auth_service:
-    build: 
-      context: .
-      dockerfile: /Auth_Service/Dockerfile
-    ports:
-      - "8002:8002"
+  # auth_service:
+  #   build: 
+  #     context: .
+  #     dockerfile: /Auth_Service/Dockerfile
+  #   ports:
+  #     - "8002:8002"
 
-  enrolling_service:
-    build: 
-      context: .
-      dockerfile: /Enrolling_Service/Dockerfile
-    ports:
-      - "8003:8003"
+  # enrolling_service:
+  #   build: 
+  #     context: .
+  #     dockerfile: /Enrolling_Service/Dockerfile
+  #   ports:
+  #     - "8003:8003"
 
   management_service:
     build: 
@@ -45,10 +49,18 @@ services:
     ports:
       - "8004:8004"
 
-  notification_service:
-    build: 
-      context: .
-      dockerfile: /Notification_Service/Dockerfile
+  # notification_service:
+  #   build: 
+  #     context: .
+  #     dockerfile: /Notification_Service/Dockerfile
+  #   ports:
+  #     - "8005:8005"
+
+  redis:
+    image: redis:latest
+    container_name: my_redis
     ports:
-      - "8005:8005"
+      - "6379:6379"  
+ 
+
 
