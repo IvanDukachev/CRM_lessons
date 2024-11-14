@@ -1,0 +1,17 @@
+FROM python:3.12-slim
+
+RUN adduser --disabled-password celeryuser
+
+USER root
+
+WORKDIR /app
+
+# COPY requirements.txt .
+
+RUN pip install celery[redis]
+
+COPY ./Notification_Service/celery_app.py .
+# COPY ./Telegram_Bot/ /app/Telegram_Bot/
+USER celeryuser
+
+CMD ["celery", "-A", "celery_app", "worker", "--loglevel=info", "-Q", "notifications"]
