@@ -6,7 +6,6 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-# sys.path.append(os.path.join(sys.path[0], 'src'))
 
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 from database import metadata

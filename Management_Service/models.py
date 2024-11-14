@@ -12,6 +12,7 @@ course = Table(
     Column("name", String, unique=True, nullable=False),
     Column("description", String, nullable=False),
     Column("price", Integer, nullable=True),
+    Column("duration", Integer, nullable=True),
     Column("operator_id", Integer, ForeignKey(operator.c.id), nullable=False),
     Column("created_at", TIMESTAMP, default=datetime.now),
     Column("updated_at", TIMESTAMP, onupdate=datetime.now),
@@ -22,7 +23,9 @@ schedule_course = Table(
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("course_id", Integer, ForeignKey(course.c.id), nullable=False),
-    Column("date", TIMESTAMP, nullable=False),
+    Column("week_day", Integer, nullable=False),
+    Column("start_date", Integer, nullable=False),
+    Column("end_date", Integer, nullable=False),
     Column("start_time", TIMESTAMP, nullable=False),
     Column("end_time", TIMESTAMP, nullable=False),
 )
