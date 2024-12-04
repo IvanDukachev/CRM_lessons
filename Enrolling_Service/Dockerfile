@@ -7,7 +7,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./Enrolling_Service .
-COPY ./Management_Service/models /app/Management_Service/models.py
+COPY ./Management_Service/models.py /app/Management_Service/models.py
+COPY ./Auth_Service/models.py /app/Auth_Service/models.py
 COPY database.py .
 COPY config.py .
 

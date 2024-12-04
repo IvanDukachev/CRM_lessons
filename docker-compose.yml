@@ -1,59 +1,69 @@
 name: dev
 services:
-  # telegram_bot:
-  #   build: 
-  #     context: .
-  #     dockerfile: /Telegram_Bot/Dockerfile.bot
-  #   environment:
-  #     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-  #     - API_GATEWAY_URL=${API_GATEWAY_URL}
-  #     - REDIS_HOST=${REDIS_HOST}  
-  #     - REDIS_PORT=${REDIS_PORT}    
-  #   depends_on:
-  #     # - api_gateway
-  #     - redis
-  #   volumes:
-  #     - ./Telegram_Bot:/app/Telegram_Bot   
-  #   networks:
-  #     - crm_network
+  telegram_bot:
+    build: 
+      context: .
+      dockerfile: /Telegram_Bot/Dockerfile.bot
+    env_file:
+      - .env 
+    depends_on:
+      - api_gateway
+      - redis
+    volumes:
+      - ./Telegram_Bot:/app/Telegram_Bot   
+    networks:
+      - crm_network
     
-  # admin_service:
-  #   build: 
-  #     context: .
-  #     dockerfile: /Admin_Service/Dockerfile
-  #   ports:
-  #     - "8000:8000"
+  admin_service:
+    build: 
+      context: .
+      dockerfile: /Admin_Service/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - crm_network
 
-  # api_gateway:
-  #   build: 
-  #     context: .
-  #     dockerfile: /API_Gateway/Dockerfile
-  #   ports:
-  #     - "8001:8001"
+  api_gateway:
+    build: 
+      context: .
+      dockerfile: /API_Gateway/Dockerfile
+    env_file:
+      - .env     
+    ports:
+      - "8001:8001"
+    networks:
+      - crm_network
 
-  # auth_service:
-  #   build: 
-  #     context: .
-  #     dockerfile: /Auth_Service/Dockerfile
-  #   ports:
-  #     - "8002:8002"
-  #   environment:
-  #     - DB_HOST=${DB_HOST}
-  #     - DB_PORT=${DB_PORT}
-  #     - DB_USER=${DB_USER}
-  #     - DB_PASS=${DB_PASS}
-  #     - DB_NAME=${DB_NAME}
-  #   depends_on:
-  #     - db
-  #   networks:
-  #     - crm_network
+  auth_service:
+    build: 
+      context: .
+      dockerfile: /Auth_Service/Dockerfile
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - crm_network
 
-  # enrolling_service:
-  #   build: 
-  #     context: .
-  #     dockerfile: /Enrolling_Service/Dockerfile
-  #   ports:
-  #     - "8003:8003"
+  enrolling_service:
+    build: 
+      context: .
+      dockerfile: /Enrolling_Service/Dockerfile
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env
+    depends_on:
+      - db
+    networks:
+      - crm_network
+
 
   management_service:
     build: 
@@ -62,68 +72,73 @@ services:
     working_dir: /app
     ports:
       - "8004:8004"
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+    env_file:
+      - .env
     depends_on:
       - db
     networks:
       - crm_network
 
-  # notification_service:
-  #   build: 
-  #     context: .
-  #     dockerfile: /Notification_Service/Dockerfile.notification
-  #   ports:
-  #     - "8005:8005"
-  #   environment:
-  #     - DB_HOST=${DB_HOST}
-  #     - DB_PORT=${DB_PORT}
-  #     - DB_USER=${DB_USER}
-  #     - DB_PASS=${DB_PASS}
-  #     - DB_NAME=${DB_NAME}
-  #   volumes:
-  #     - ./Telegram_Bot:/app/Telegram_Bot
-  #   networks:
-  #     - crm_network
+  notification_service:
+    build: 
+      context: .
+      dockerfile: /Notification_Service/Dockerfile.notification
+    ports:
+      - "8005:8005"
+    env_file:
+      - .env 
+    volumes:
+      - ./Telegram_Bot:/app/Telegram_Bot
+    networks:
+      - crm_network
 
-  # redis:
-  #   image: redis:latest
-  #   ports:
-  #     - "6379:6379"
-  #   networks:
-  #     - crm_network
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - crm_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
 
-  # celery_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: /Notification_Service/Dockerfile.worker
-  #   working_dir: /app
-  #   depends_on:
-  #     - redis
-  #   networks:
-  #     - crm_network
-
-
-  # worker_bot:
-  #   build:
-  #     context: .
-  #     dockerfile: /Telegram_Bot/Dockerfile.worker
-  #   environment:
-  #     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-  #     - API_GATEWAY_URL=${API_GATEWAY_URL}
-  #     - REDIS_HOST=${REDIS_HOST}  
-  #     - REDIS_PORT=${REDIS_PORT}  
-  #   volumes:
-  #     - ./Telegram_Bot:/app/Telegram_Bot
-  #   command: celery -A tasks worker --loglevel=info
-  #   networks:
-  #     - crm_network
+  celery_worker:
+    build:
+      context: .
+      dockerfile: /Notification_Service/Dockerfile.worker
+    working_dir: /app
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - crm_network
+    volumes:
+      - ./Telegram_Bot:/app/Telegram_Bot
 
 
+  worker_bot:
+    build:
+      context: .
+      dockerfile: /Telegram_Bot/Dockerfile.worker
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - API_GATEWAY_URL=${API_GATEWAY_URL}
+      - REDIS_HOST=${REDIS_HOST}  
+      - REDIS_PORT=${REDIS_PORT}  
+    volumes:
+      - ./Telegram_Bot:/app/Telegram_Bot
+    command: celery -A tasks worker --loglevel=info
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - crm_network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   db:
     image: postgres
@@ -143,12 +158,8 @@ services:
       context: .
       dockerfile: Dockerfile.migrate
     working_dir: /app
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_PASS=${DB_PASS}
-      - DB_NAME=${DB_NAME}
+    env_file:
+      - .env
     depends_on:
       - db
     networks:
@@ -159,3 +170,4 @@ volumes:
 
 networks:
   crm_network:
+    driver: bridge

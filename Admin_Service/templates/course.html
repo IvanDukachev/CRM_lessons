@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Создание курса</h1>
+<form action="/edit-course/{{ details.id }}" method="post">
+    <label>Название курса:</label><input type="text" name="name" value="{{ details.name }}"><br>
+    <label>Описание:</label><textarea name="description">{{ details.description }}</textarea><br>
+    <button type="submit">Сохранить изменения</button>
+</form>
+<form action="/my-courses" method="get">
+    <button type="submit" style="background-color: red; color: white;">Отменить</button>
+</form>
+{% endblock %}

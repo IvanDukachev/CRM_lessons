@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Мои курсы</h1>
+<ul>
+    {% for course in courses %}
+    <li>
+        {{ course.name }} - {{ course.description }}
+        <a href="/edit-course/{{ course.id }}">Редактировать</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endblock %}

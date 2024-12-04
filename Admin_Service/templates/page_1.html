@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Данные пользователя</h1>
+<form action="/update-user" method="post">
+    <label>Имя:</label><input type="text" name="username" value="{{ user.username }}"><br>
+    <label>Email:</label><input type="email" name="email" value="{{ user.email }}"><br>
+    <label>Password:</label><input type="password" name="password" value="{{ user.password }}"><br>
+    <input type="hidden" name="user_id" value="{{ user.id }}">
+    <button type="submit">Сохранить</button>
+</form>
+{% endblock %}

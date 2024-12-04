@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/styles.css">
+    <title>Admin Panel</title>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <a href="/" class="{% if active_page == 1 %}active{% endif %}">Личный кабинет</a>
+            <a href="/create-course" class="{% if active_page == 2 %}active{% endif %}">Создать курс</a>
+            <a href="/my-courses" class="{% if active_page == 3 %}active{% endif %}">Мои курсы</a>
+            <a href="/calendar_courses" class="{% if active_page == 4 %}active{% endif %}">Календарь</a>
+        </div>
+        <div class="content">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+</body>
+</html>

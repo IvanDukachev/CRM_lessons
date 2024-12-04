@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Создание курса</h1>
+<form action="/courses" method="post">
+    <label>Название курса:</label><input type="text" name="name"><br>
+    <label>Описание:</label><textarea name="description"></textarea><br>
+    <label>Цена:</label><input type="number" name="price"><br>
+    <label>Расписание:</label>
+    <div id="schedule-container">
+        <div class="schedule-item">
+            <label>Дата начала:</label><input type="date" name="start_date" min="{{ tomorrow_date }}">
+            <label>Дата окончания:</label><input type="date" name="end_date" min="{{ tomorrow_date }}"><br>
+            <label>Время начала:</label><input type="time" name="start_time_hour" min="0" max="23">
+            <label>Время окончания:</label><input type="time" name="end_time_hour" min="0" max="23">
+        </div>
+    </div>
+    <input type="hidden" name="user_id" value="{{ user }}">
+    <button type="button" onclick="addSchedule()">Добавить расписание</button><br>
+    <button type="submit">Создать курс</button>
+</form>
+<script>
+    function addSchedule() {
+        const container = document.getElementById('schedule-container');
+        const newItem = document.querySelector('.schedule-item').cloneNode(true);
+        container.appendChild(newItem);
+    }
+</script>
+{% endblock %}

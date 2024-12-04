@@ -1,24 +1,23 @@
 from typing import Optional
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, time
 
 
 class CourseCreate(BaseModel):
     name: str
     description: str
-    price: Optional[int] = None
+    price: Optional[int] = 0
     operator_id: int
 
 
 class CourseUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    price: Optional[int] = None
-    operator_id: Optional[int] = None
 
 
 class ScheduleCreate(BaseModel):
-    course_id: int
-    date: datetime
-    start_time: datetime
-    end_time: datetime
+    start_date: date
+    end_date: date
+    start_time: time
+    end_time: time
+    

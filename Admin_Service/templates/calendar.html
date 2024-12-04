@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FullCalendar</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"/> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.4.0/fullcalendar.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.4.0/fullcalendar.min.js"></script>
+</head>
+<body>
+    <h2><center>Календарь курсов</center></h2>
+    <div class="container">
+        <div id="calendar"></div>
+    </div>
+    <br>
+    <script>
+    $(document).ready(function() {
+        // Получение user_id из данных, переданных сервером
+        const user_id = "{{ user }}";
+
+        $('#calendar').fullCalendar({
+            locale: 'ru', // Локализация
+            editable: false, // Нельзя редактировать события
+            header: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'month,agendaWeek,agendaDay'
+            },
+            defaultView: 'month', // Начальный вид
+            events: function(start, end, timezone, callback) {
+                // Отправка запроса с user_id
+                $.ajax({
+                    url: `/schedule/${user_id}`, // Передача user_id в URL
+                    method: "GET",
+                    success: function(data) {
+                        // Преобразование данных в формат FullCalendar
+                        const events = data.map(item => ({
+                            title: item.course_name,
+                            start: item.start_date,  // Только дата начала
+                            end: item.end_date,      // Только дата окончания
+                            allDay: true,            // Указываем, что событие длится весь день
+                            backgroundColor: "#007bff",
+                            borderColor: "#007bff",
+                            textColor: "#fff"
+                        }));
+                        callback(events); // Передача событий в календарь
+                    },
+                    error: function() {
+                        alert("Не удалось загрузить данные с сервера.");
+                    }
+                });
+            }
+        });
+    });
+    </script>
+</body>
+</html>
