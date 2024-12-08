@@ -220,8 +220,11 @@ async def command_start_handler(message: Message) -> None:
     """
     await message.answer(
         f"Привет, {html.bold(message.from_user.full_name)}!\n"
-        f"Используй команду /courses или кнопку ниже, чтобы"
-        f"просмотреть доступные курсы.",
+        f"Используй команду /courses, чтобы"
+        f"просмотреть доступные курсы.\n",
+        f"Используй команду /enrolled, чтобы"
+        f"просмотреть курсы, на которые ты записан.\n",
+        f"Так же можно использовать кнопки ниже для получения информации.",
         reply_markup=start_keyboard
     )
 
@@ -592,7 +595,7 @@ async def show_enroll_course_details(callback: CallbackQuery) -> None:
     
     await callback.message.answer(
         f"Курс: {course['name']}\n"
-        f"Описание: {course['description']}"
+        f"Описание: {course['description']}\n"
         f"Стоимость: {course['price']}\n",
         reply_markup=keyboard
     )

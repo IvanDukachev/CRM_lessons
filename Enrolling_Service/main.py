@@ -30,11 +30,15 @@ async def enroll_user(
     """
 
     try:
-        stmt = insert(enroll_course).values(**enroll_data.model_dump())
-        await session.execute(stmt)
+        stmt = insert(enroll_course).values(**enroll_data.model_dump()).returning(enroll_course.c.id)
+        result = await session.execute(stmt)
+        enroll_id = result.scalar_one()
         await session.commit()
 
-        return {"message": "Пользователь успешно зарегистрирован на курс"}
+        return {
+            "message": "Пользователь успешно зарегистрирован на курс",
+            "enroll_id": enroll_id
+        }
     except Exception as e:
 
         print(f"Ошибка при записи пользователя на курс: {e}")
@@ -65,7 +69,7 @@ async def get_enroll(
         )
         .where(and_(
             enroll_course.c.user_id == user_id,
-            schedule_course.c.start_date > today
+            schedule_course.c.end_date > today
         ))
     )
 

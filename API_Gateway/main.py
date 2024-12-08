@@ -9,7 +9,6 @@ from config import (
     ENROLLING_SERVICE_URL
 )
 from Enrolling_Service.schemas import EnrollCreate
-from Management_Service.schemas import CourseCreate, ScheduleCreate
 from Auth_Service.schemas import LoginRequest
 
 
@@ -224,11 +223,21 @@ async def create_course(
     schedule_data: List[dict]
 ):
     async with httpx.AsyncClient() as client:
-        await client.post(
+        response = await client.post(
             f"{MANAGEMENT_SERVICE_URL}/courses",
             json={
                 "course_data": course_data,
-                # "schedule_data": [schedule for schedule in schedule_data]
                 "schedule_data": schedule_data
             }
         )
+
+    return response.json()
+
+
+@app.get("/enroll/{schedule_id}")
+async def get_enroll_by_schedule_id(schedule_id: int):
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{ENROLLING_SERVICE_URL}/enroll/{schedule_id}"
+        )
+    return response.json()
