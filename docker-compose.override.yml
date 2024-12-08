@@ -1,0 +1,85 @@
+services:
+  db:
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - crm_network
+  
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    working_dir: /app
+    env_file:
+      - .env.test
+    depends_on:
+      - db
+    networks:
+      - crm_network
+    
+  management_service:
+    build: 
+      context: .
+      dockerfile: /Management_Service/Dockerfile
+    working_dir: /app
+    ports:
+      - "8004:8004"
+    env_file:
+      - .env.test
+    depends_on:
+      - db
+    networks:
+      - crm_network
+
+  enrolling_service:
+    build: 
+      context: .
+      dockerfile: /Enrolling_Service/Dockerfile
+    ports:
+      - "8003:8003"
+    env_file:
+      - .env.test
+    depends_on:
+      - db
+    networks:
+      - crm_network
+  
+  auth_service:
+    build: 
+      context: .
+      dockerfile: /Auth_Service/Dockerfile
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env.test
+    depends_on:
+      - db
+    networks:
+      - crm_network
+
+  unit_service_test:
+    build: 
+      context: .
+      dockerfile: /tests/Dockerfile.test
+    env_file:
+      - .env.test
+    depends_on:
+      - db
+      - management_service
+      - enrolling_service
+      - auth_service
+    networks:
+      - crm_network
+
+networks:
+  crm_network:
+    driver: bridge
+
+volumes:
+  db_data:

@@ -52,31 +52,12 @@ async def create_course(
     """
     Create a new course with its schedules.
 
-    This endpoint first validates the course data, then validates each schedule in the list
-    against existing schedules in the database. If a schedule conflicts with an existing one, it
-    will not be created and will be added to the list of conflicted schedules. If a schedule
-    is valid, it will be added to the list of valid schedules and will be created in the database.
-
-    Args:
-        course_data (CourseCreate): The course data to be created.
-        schedule_data (List[ScheduleCreate]): A list of schedule data to be created.
-
-    Returns:
-        dict: A dictionary containing the following keys:
-
-            * message: A success message.
-            * valid_schedules: A list of valid schedules created.
-            * conflicted_schedules: A list of schedules that conflict with existing ones.
-            * schedules: A list of ISO-formatted timestamps of the valid schedules created.
-            * notifications: A string indicating whether notifications were sent successfully.
-
-    Raises:
-        HTTPException: If the course with the same name already exists.
-        HTTPException: If any of the schedules conflict with existing ones.
-        HTTPException: If there is an unexpected error.
+    This endpoint validates schedules before creating the course. If all schedules are valid,
+    the course and its schedules are inserted into the database.
     """
     try:
-        async with session.begin():
+        async with session.begin():  # Основная транзакция
+            # Проверяем существование курса с таким же именем
             existing_course = await session.execute(
                 select(course).filter(course.c.name == course_data.name)
             )
@@ -86,107 +67,102 @@ async def create_course(
                     detail="Course with this name already exists"
                 )
 
-            query = insert(course).values(**course_data.model_dump())
-            result = await session.execute(query)
-            course_id = result.inserted_primary_key[0]
+            valid_schedules = []
+            conflicted_schedules = []
+            occupied_intervals = {}
 
-        valid_schedules = []
-        conflicted_schedules = []
-        occupied_intervals = {}
-
-        for schedule in schedule_data:
-            if schedule.end_date < schedule.start_date:
-                conflicted_schedules.append(
-                    {
-                        **schedule.model_dump(),
-                        "reason": "End date is earlier than start date"
-                    }
-                )
-                continue
-
-            start_date = schedule.start_date
-            start_time = schedule.start_time
-            end_time = schedule.end_time
-
-            if start_date not in occupied_intervals:
-                occupied_intervals[start_date] = []
-
-            conflict = False
-            for interval in occupied_intervals[start_date]:
-                if (start_time < interval["end_time"]) and \
-                    (end_time > interval["start_time"]):
-                    conflict = True
-                    break
-
-            if conflict:
-                conflicted_schedules.append(
-                    {
-                        **schedule.model_dump(),
-                        "msg": "Time conflict with an already valid schedule"
-                    }
-                )
-            else:
-                valid_schedules.append(
-                    {
-                        **schedule.model_dump(),
-                        "course_id": course_id
-                    }
-                )
-                occupied_intervals[start_date].append(
-                    {
-                        "start_time": start_time,
-                        "end_time": end_time
-                    }
-                )
-
-        inserted_schedule_ids = []
-        for schedule in valid_schedules:
-            try:
-                async with session.begin():
-                    query = (
-                        insert(schedule_course)
-                        .values(schedule)
-                        .returning(schedule_course.c.id)
+            # Проверяем расписания на корректность
+            for schedule in schedule_data:
+                if schedule.end_date < schedule.start_date:
+                    conflicted_schedules.append(
+                        {
+                            **schedule.model_dump(),
+                            "reason": "End date is earlier than start date"
+                        }
                     )
-                    result = await session.execute(query)
-                    schedule_id = result.scalar_one()
-                    inserted_schedule_ids.append(schedule_id)
-            except IntegrityError:
-                conflicted_schedules.append(
-                    {
-                        **schedule.model_dump(),
-                        "reason": "Database integrity error"
-                    }
-                )
-                continue
+                    continue
 
-        schedules = []
-        if inserted_schedule_ids:
-            for schedule_time in valid_schedules:
+                start_date = schedule.start_date
+                start_time = schedule.start_time
+                end_time = schedule.end_time
+
+                if start_date not in occupied_intervals:
+                    occupied_intervals[start_date] = []
+
+                conflict = False
+                for interval in occupied_intervals[start_date]:
+                    if (start_time < interval["end_time"]) and \
+                            (end_time > interval["start_time"]):
+                        conflict = True
+                        break
+
+                if conflict:
+                    conflicted_schedules.append(
+                        {
+                            **schedule.model_dump(),
+                            "reason": "Time conflict with an already valid schedule"
+                        }
+                    )
+                else:
+                    valid_schedules.append(schedule.model_dump())
+                    occupied_intervals[start_date].append(
+                        {
+                            "start_time": start_time,
+                            "end_time": end_time
+                        }
+                    )
+
+            # Если нет валидных расписаний, откатываемся
+            if not valid_schedules:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No valid schedules provided"
+                )
+
+            # Добавляем курс
+            query = insert(course).values(**course_data.model_dump()).returning(course.c.id)
+            result = await session.execute(query)
+            course_id = result.scalar_one()
+
+            # Добавляем валидные расписания
+            inserted_schedule_ids = []
+            schedules = []
+            for schedule in valid_schedules:
+                schedule["course_id"] = course_id
+                query = (
+                    insert(schedule_course)
+                    .values(schedule)
+                    .returning(schedule_course.c.id)
+                )
+                result = await session.execute(query)
+                schedule_id = result.scalar_one()
+                inserted_schedule_ids.append(schedule_id)
                 date_time = datetime.combine(
-                    schedule_time["start_date"],
-                    schedule_time["start_time"]
+                    schedule["start_date"],
+                    schedule["start_time"]
                 )
                 schedules.append(f"{date_time.isoformat()}+05:00")
 
-            logging.error(f"NOTIFICATION - {schedules}")
-            async with httpx.AsyncClient() as client:
-                notification_response = await client.post(
-                    "http://notification_service:8005/send_notification/",
-                    json={
-                        "course_id": course_id,
-                        "schedule_ids": inserted_schedule_ids,
-                        "schedule_time_str": schedules,
-                    },
-                )
-                if notification_response.status_code != 200:
-                    raise HTTPException(
-                        status_code=500,
-                        detail=(
-                            f"Failed to send notifications: "
-                            f"{notification_response.text}"
-                        ),
+            # Отправляем уведомления
+            if inserted_schedule_ids:
+                logging.error(f"NOTIFICATION - {schedules}")
+                async with httpx.AsyncClient() as client:
+                    notification_response = await client.post(
+                        "http://notification_service:8005/send_notification/",
+                        json={
+                            "course_id": course_id,
+                            "schedule_ids": inserted_schedule_ids,
+                            "schedule_time_str": schedules,
+                        },
                     )
+                    if notification_response.status_code != 200:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=(
+                                f"Failed to send notifications: "
+                                f"{notification_response.text}"
+                            ),
+                        )
 
         return {
             "message": "Course and schedules processed successfully",
@@ -194,10 +170,12 @@ async def create_course(
             "conflicted_schedules": conflicted_schedules,
             "schedules": schedules,
             "notifications": (
-                "Sent successfully" 
-                if inserted_schedule_ids 
+                "Sent successfully"
+                if inserted_schedule_ids
                 else "No notifications sent"
             ),
+            "course_id": course_id,
+            "schedule_ids": inserted_schedule_ids
         }
 
     except IntegrityError as e:
@@ -210,6 +188,8 @@ async def create_course(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         )
+
+
 
 @app.get("/courses/{course_id}")
 async def get_course_by_id(

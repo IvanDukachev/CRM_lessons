@@ -74,7 +74,7 @@ async def create_course(
         )
 
     async with httpx.AsyncClient() as client:
-        await client.post(
+        response = await client.post(
             f"{API_GATEWAY_URL}/courses",
             json={
                 "course_data": course,
@@ -82,7 +82,7 @@ async def create_course(
             }
         )
 
-    return {"message": "Курс успешно создан!"}
+    return {"message": response.json()}
 
 
 @app.get("/login", response_class=HTMLResponse)
