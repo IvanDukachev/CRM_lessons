@@ -14,6 +14,20 @@ async def send_notification(
     schedule_ids: List[int] = Body(...),
     schedule_time_str: List[str] = Body(...),
 ):
+    
+    """
+    Создание задачи celery для отправки уведомления пользователю о курсе
+
+    Args:
+        course_id (int): ID курса
+        schedule_ids (List[int]): список ID расписаний
+        schedule_time_str (List[str]): список времен отправки
+        уведомления в формате ISO
+
+    Returns:
+        dict: A dictionary with status and notification time
+    """
+
     schedule_time = [
         datetime.fromisoformat(time) - timedelta(hours=1)
         for time in schedule_time_str
@@ -33,5 +47,16 @@ async def send_notification(
 
 @app.get("/status/{task_id}")
 async def get_task_status(task_id: str):
+    
+    """
+    Получение статуса задачи по его ID
+
+    Args:
+        task_id (str): ID задачи
+
+    Returns:
+        dict: словарь, содержащий ID задачи и ее статус
+    """
+    
     task = AsyncResult(task_id, app=celery_app)
     return {"task_id": task.id, "status": task.status}

@@ -30,8 +30,12 @@ async def enroll_user(
     """
 
     try:
-        stmt = insert(enroll_course).values(**enroll_data.model_dump()).returning(enroll_course.c.id)
-        result = await session.execute(stmt)
+        query = (
+            insert(enroll_course)
+            .values(**enroll_data.model_dump())
+            .returning(enroll_course.c.id)
+        )
+        result = await session.execute(query)
         enroll_id = result.scalar_one()
         await session.commit()
 
@@ -40,8 +44,6 @@ async def enroll_user(
             "enroll_id": enroll_id
         }
     except Exception as e:
-
-        print(f"Ошибка при записи пользователя на курс: {e}")
         raise HTTPException(
             status_code=500,
             detail="Ошибка при записи на курс"
@@ -54,12 +56,17 @@ async def get_enroll(
     session: AsyncSession = Depends(get_async_session)
 ):
     """
-    Получить список курсов, на которые записан пользователь
+    Получение списка записей для заданного user_id
 
-    Аргументы:
-        user_id (int): ID пользователя
+    Args:
+        user_id (int): ID пользователя,
+        для которого нужно получить его записи на курсы
+
+    Returns:
+        list: список словарей,
+        содержащий информацию о записях пользователя на курсы,
+        включая название курса, расписание и дату начала
     """
-    
     today = datetime.now().date()
     query = (
         select(enroll_course)
@@ -85,10 +92,10 @@ async def delete_enroll_for_user(
     """
     Удалить запись на курс для пользователя
     
-    Аргументы:
+    Args:
         enroll_id (int): ID записи на курс
     
-    Возвращает:
+    Returns:
         None
     """
     query = delete(enroll_course).where(enroll_course.c.id == enroll_id)
@@ -104,9 +111,9 @@ async def get_users_for_schedule(
     """
     Получить список пользователей, записанных на данное расписание
     
-    Аргументы:
+    Args:
         schedule_id (int): ID расписания
-    Возвращает:
+    Returns:
         dict: {"users": [user_id1, user_id2, ...]}
     """
     query = (

@@ -1,12 +1,12 @@
 from datetime import date, timedelta
 from typing import List, Optional
+
 from fastapi import FastAPI, HTTPException, Request, Form
 from fastapi.staticfiles import StaticFiles
-import httpx
-import requests
-import logging
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
+import httpx
+import logging
 import redis
 
 from config import (
@@ -34,12 +34,6 @@ headers = {
 }
 
 
-@app.get("courses/{operator_id}")
-async def show_all_courses(operator_id: int):
-    response = await requests.get(f"{API_GATEWAY_URL}/courses/{operator_id}")
-    return response.json()
-
-
 @app.post("/courses")
 async def create_course(
     name: str = Form(...),
@@ -51,6 +45,22 @@ async def create_course(
     end_time_hour: List[str] = Form(...),
     user_id: str = Form(...),
 ):
+    """
+    Создание нового курса с расписанием
+
+    Args:
+        name (str): название курса
+        description (str): описание курса
+        price (int): цена курса
+        start_date (List[str]): дата начала курса
+        end_date (List[str]): дата окончания курса
+        start_time_hour (List[str]): время начала курса
+        end_time_hour (List[str]): время окончания курса
+        user_id (str): ID оператора, который создает курс
+
+    Returns:
+        dict: сообщение о создании курса
+    """
     course = {
         "name": name,
         "description": description,
@@ -75,7 +85,7 @@ async def create_course(
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{API_GATEWAY_URL}/courses",
+            f"{API_GATEWAY_URL}/courses/",
             json={
                 "course_data": course,
                 "schedule_data": schedule
@@ -87,18 +97,38 @@ async def create_course(
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
+    """
+    Возвращает HTML-страницу для входа в систему
+
+    Args:
+        request (Request): FastAPI request
+
+    Returns:
+        HTMLResponse: Страница для входа в систему
+    """
     return templates.TemplateResponse("login.html", {"request": request})
 
 
 @app.post("/login")
 async def admin_login(email: str = Form(...), password: str = Form(...)):
+    """
+    Позволяет оператору войти в систему
+
+    Args:
+        email (str): email оператора
+        password (str): пароль оператора
+
+    Returns:
+        RedirectResponse: Перенаправляет на главную страницу с
+        куки аутентификации
+    """
     async with httpx.AsyncClient() as client:
         data = {
             "grant_type": "password",
             "username": email,
             "password": password
         }
-        response = await client.post(f"{API_GATEWAY_URL}/login", json=data)
+        response = await client.post(f"{API_GATEWAY_URL}/auth/login", json=data)
         response.raise_for_status()
         auth_cookie = response.json()
         if not auth_cookie:
@@ -109,7 +139,7 @@ async def admin_login(email: str = Form(...), password: str = Form(...)):
 
         logging.error(auth_cookie)
         user_data = await client.get(
-            f"{API_GATEWAY_URL}/me",
+            f"{API_GATEWAY_URL}/auth/me",
             params={"auth_cookie": auth_cookie}
         )
         user_data.raise_for_status()
@@ -130,6 +160,15 @@ async def admin_login(email: str = Form(...), password: str = Form(...)):
 
 @app.get("/", response_class=HTMLResponse)
 async def user_data_page(request: Request):
+    """
+    Отображает страницу с данными пользователя
+
+    Args:
+        request (Request): FastAPI request
+
+    Returns:
+        HTMLResponse: HTML-страница с данными пользователя
+    """
     user_detail = {
         "id": request.cookies.get("user_id"),
         "username": request.cookies.get("username"),
@@ -148,6 +187,16 @@ async def user_data_page(request: Request):
 
 @app.get("/create-course", response_class=HTMLResponse)
 async def create_course_page(request: Request):
+    """
+    Возвращает HTML-страницу для создания курса
+
+    Args:
+        request (Request): FastAPI request
+
+    Returns:
+        HTMLResponse: HTML-страница для создания курса
+    """
+
     user_id = request.cookies.get("user_id")
     current_date = date.today()
     tomorrow_date = (current_date + timedelta(days=1)).isoformat()
@@ -166,12 +215,22 @@ async def create_course_page(request: Request):
 
 @app.get("/my-courses", response_class=HTMLResponse)
 async def my_courses_page(request: Request):
-    user_id = request.cookies.get("user_id")
-    if not user_id:
+    """
+    Возвращает HTML-страницу со списком курсов созданных пользователем
+
+    Args:
+        request (Request): FastAPI request
+
+    Returns:
+        HTMLResponse: HTML страница списка курсов,
+        созданных пользователем
+    """
+    operator_id = request.cookies.get("user_id")
+    if not operator_id:
         raise HTTPException(status_code=401, detail="User not authenticated")
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_GATEWAY_URL}/courses_by_operator/{user_id}"
+            f"{API_GATEWAY_URL}/courses/operator/{operator_id}"
         )
         courses = response.json()
     return templates.TemplateResponse(
@@ -180,13 +239,24 @@ async def my_courses_page(request: Request):
             "request": request,
             "active_page": 3,
             "courses": courses,
-            "user": user_id
+            "user": operator_id
         }
     )
 
 
 @app.get("/edit-course/{course_id}", response_class=HTMLResponse)
 async def edit_course_page(request: Request, course_id: int):
+    """
+    Возвращает HTML-страницу для редактирования курса с заданным ID
+
+    Args:
+        request (Request): FastAPI request
+        course_id (int): ID курса для редактирования
+
+    Returns:
+        HTMLResponse: HTML страница для редактирования курса
+    """
+
     async with httpx.AsyncClient() as client:
         course = await client.get(f"{API_GATEWAY_URL}/courses/{course_id}")
 
@@ -205,6 +275,17 @@ async def edit_course(
     name: str = Form(...),
     description: str = Form(...)
 ):
+    """
+    Позволяет обновить курс с заданным ID
+
+    Args:
+        course_id (int): ID курса для обновления
+        name (str): новое название курса
+        description (str): новое описание курса
+
+    Returns:
+        None
+    """
     course_data = {
         "name": name,
         "description": description
@@ -223,13 +304,24 @@ async def update_user(
     email: Optional[str] = Form(""),
     password: Optional[str] = Form("")
 ):
+    """
+    Обновляет данные оператора
+
+    Args:
+        user_id (str): ID оператора
+        username (Optional[str]): Новый username оператора
+        email (Optional[str]): Новый email оператора
+        password (Optional[str]): Новый пароль оператора
+
+    Returns:
+        None
+    """
     auth_cookie = redis_client.getex(f"user:{user_id}:auth_cookie")
     auth_cookie = (
         auth_cookie.decode()
         if isinstance(auth_cookie, bytes)
         else auth_cookie
     )
-    logging.error(f"auth_cookie: {auth_cookie}")
     update_data = {
         "username": username if username else None,
         "email": email if email else None,
@@ -243,38 +335,54 @@ async def update_user(
     }
 
     async with httpx.AsyncClient() as client:
-        response = await client.patch(
+        await client.patch(
             f"{AUTH_SERVICE_URL}/users/me",
             json=filtered_data,
             cookies={"fastapiusersauth": auth_cookie}
-
         )
-    return response.json()
 
 
 @app.get("/calendar_courses", response_class=HTMLResponse)
 async def calendar_courses(request: Request):
+    """
+    Отображает страницу календаря курсов
+
+    Args:
+        request (Request): объект запроса
+
+    Returns:
+        HTMLResponse: HTML-страница календаря курсов
+    """
     user_id = request.cookies.get("user_id")
     return templates.TemplateResponse(
         "calendar.html",
         {
             "request": request,
-            "user": user_id
+            "user": user_id,
         }
     )
 
 
 @app.get("/schedule/{user_id}")
-async def get_schedule(user_id: str):
+async def get_schedule(operator_id: str):
+    """
+    Получить список расписания курсов для оператора
+    Args:
+        user_id (str): ID оператора
+
+    Returns:
+        list: список расписаний курсов для оператора
+    """
+    
     schedule_data = []
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{API_GATEWAY_URL}/courses_by_operator/{user_id}"
+            f"{API_GATEWAY_URL}/operator/{operator_id}"
         )
         for course in response.json():
             course_id = course['id']
             course_schedule = await client.get(
-                f"{API_GATEWAY_URL}/courses_schedule_operator/{course_id}"
+                f"{API_GATEWAY_URL}/courses/schedule/operator/{course_id}"
             )
             schedule_data += course_schedule.json()['schedule']
     logging.error(schedule_data)

@@ -51,9 +51,11 @@ start_keyboard = ReplyKeyboardMarkup(
 def got_exception_handler(func):
     async def wrapper(msg_clbck: Message | CallbackQuery, *args) -> None:
         """
-        Обработчик исключений в функциях обработки сообщений и обратных вызовов
+        Обработчик исключений в функциях обработки сообщений и
+        обратных вызовов
 
-        Перехватывает исключения и отправляет пользователю сообщение об ошибке.
+        Перехватывает исключения и
+        отправляет пользователю сообщение об ошибке.
         Обрабатываются такие исключения как:
             1.Ошибка подключения
             2.Таймаут
@@ -97,8 +99,9 @@ async def fetch_data_from_api(url: str, params: dict = None) -> dict:
     """
     Обработчик для получения данных с API
     
-    Выполняет HTTP GET запрос к указанному URL с переданными параметрами.
-    Возвращает результат в формате JSON или пустой словарь в случае ошибки.
+    Выполняет HTTP GET запрос к указанному URL с переданными параметрами
+    Возвращает результат в формате JSON или
+    пустой словарь в случае ошибки.
 
     Args:
         url (str): URL для выполнения запроса.
@@ -151,14 +154,14 @@ async def handle_courses_keyboard(
     """
     Формирование клавиатуры для навигации по курсам.
 
-    Создает кнопки с названиями курсов и кнопки для переключения страниц.
+    Создает кнопки с названиями курсов и кнопки для переключения страниц
 
     Args:
         courses (List[dict]): Список курсов.
         page (int): Номер текущей страницы.
 
     Returns:
-        InlineKeyboardMarkup: Клавиатура с курсами и навигацией.
+        InlineKeyboardMarkup: Клавиатура с курсами и навигацией
     """
     total_pages = (len(courses) - 1) // PAGE_COUNT + 1
 
@@ -245,7 +248,7 @@ async def show_courses(message: Message, page: int = 0) -> None:
     """
     user_id = message.chat.id
     courses = await fetch_data_from_api(
-        f"{API_GATEWAY_URL}/courses", 
+        f"{API_GATEWAY_URL}/courses/", 
         params={"user_id": user_id}
     )
 
@@ -435,14 +438,17 @@ async def select_date(callback: CallbackQuery) -> None:
 @got_exception_handler
 async def confirm_selection(callback: CallbackQuery) -> None:
     """
-    Подтверждение выбора курса, даты и времени.
+    Подтверждение выбора курса, даты и времени
 
-    Отображает информацию о курсе, дате начала, окончании и времени занятий.
+    Отображает информацию о: 
+        курсе
+        дате начала и окончании
+        времени занятий
     """   
     _, course_id, schedule_id = callback.data.split("_") 
 
     course = await fetch_data_from_api(
-        f"{API_GATEWAY_URL}/courses_schedule/{schedule_id}"
+        f"{API_GATEWAY_URL}/courses/schedule/{schedule_id}"
     )
     
     start_time = course['start_time']
@@ -499,7 +505,7 @@ async def finalize_enrollment(callback: CallbackQuery) -> None:
     user_id = callback.from_user.id
     course_id = int(course_id)
     enrolls = await fetch_data_from_api(
-        f"{API_GATEWAY_URL}/enroll", 
+        f"{API_GATEWAY_URL}/enroll/", 
         params={"user_id": user_id}
     )    
 
@@ -509,7 +515,7 @@ async def finalize_enrollment(callback: CallbackQuery) -> None:
     
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{API_GATEWAY_URL}/enroll",  
+            f"{API_GATEWAY_URL}/enroll/",  
             json={
                 "user_id": user_id,
                 "course_id": course_id,  
@@ -540,7 +546,7 @@ async def get_enroll_for_user(message: Message, **kwargs) -> None:
     """
     user_id = message.chat.id
     enrolls = await fetch_data_from_api(
-        f"{API_GATEWAY_URL}/enroll", 
+        f"{API_GATEWAY_URL}/enroll/", 
         params={"user_id": user_id}
     )
     if not enrolls:
@@ -647,18 +653,18 @@ async def send_notification_to_user(schedule_id: int, course_id: int) -> None:
     """
     Уведомление пользователя о начале курса.
 
-    Отправляет сообщение всем записанным пользователям за час до начала курса.
+    Отправляет сообщение всем записанным пользователям
+    за час до начала курса.
     """
+    response = await fetch_data_from_api(
+    f"{API_GATEWAY_URL}/courses/{course_id}"
+    )
+    course_name = response.json()[0]["name"]
+    response = await fetch_data_from_api(
+    f"{API_GATEWAY_URL}/enroll/{schedule_id}"
+    )
+    users = response.json()["users"]
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{API_GATEWAY_URL}/courses/{course_id}"
-            )
-            course_name = response.json()[0]["name"]
-            response = await client.get(
-                f"{API_GATEWAY_URL}/enroll/{schedule_id}"
-            )
-            users = response.json()["users"]
         message = f"Ровно через час начнется занятие на курсе: {course_name}"
         for user in users:    
             await bot.send_message(

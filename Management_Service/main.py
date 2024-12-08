@@ -20,17 +20,15 @@ app = FastAPI()
 @app.get("/courses")
 async def get_courses(session: AsyncSession=Depends(get_async_session)):
     """
-    Retrieve a list of courses that have not yet started.
+    Получение списка курсов, которые еще не начались
 
-    This endpoint joins the `course` and `schedule_course` tables to filter out courses 
-    whose schedules have a start date greater than today's date. It returns a distinct list
-    of such courses.
-
-    Args:
-        session (AsyncSession): The database session dependency for executing queries.
+    Этот эндпоинт соединяет таблицы `course` и `schedule_course` 
+    для фильтрации курсов, у которых дата начала расписания
+    больше текущей даты. Он возвращает уникальный список таких курсов
 
     Returns:
-        List[Mapping]: A list of mappings representing the courses with future start dates.
+        List[Mapping]: список маппингов,
+        представляющих курсы с будущими датами начала
     """
     today = date.today()
 
@@ -50,14 +48,52 @@ async def create_course(
     session: AsyncSession = Depends(get_async_session),
 ):
     """
-    Create a new course with its schedules.
+    Создание нового курса со списком расписаний
 
-    This endpoint validates schedules before creating the course. If all schedules are valid,
-    the course and its schedules are inserted into the database.
+    Этот эндпоинт ожидает JSON-объект с двумя ключами:
+        `course_data` и `schedule_data`
+    `course_data` должен содержать имя и описание курса
+    `schedule_data` должен быть списком словарей,
+        каждый из которых содержит дату и время
+        начала и окончания валидного расписания
+
+    Сначла проводится проверка на наличие курса с таким же именем
+    Если такой курс уже существует, то возвращается ошибка 400
+    В противном случае, происходит попытка вставить курс в базу данных
+
+    Далее проверяется наличие конфликтов между расписаниями
+    Если конфликтов нет, то расписание добавляется в
+    список `valid_schedules`
+    Если конфликт есть, то расписание добавляется в
+    список `conflicted_schedules`
+
+    В конце происходит вставка списка `valid_schedules` в базу данных и
+    отправка уведомлений для каждого расписания с
+    помощью сервиса уведомлений. 
+    Если отправить уведомлений не удалось, то возвращается ошибка 500
+
+    Args:
+        course_data (CourseCreate): 
+            информация о курсе, который нужно создать
+        schedule_data (List[ScheduleCreate]): 
+            список расписаний для курса
+
+    Returns:
+        dict: словарь, включающий следующие ключи:
+            - `message`: сообщение уведомляющее о результатах операции
+            - `valid_schedules`: список словарей с
+                информацией о валидных расписаниях
+            - `conflicted_schedules`: список словарей с информацией
+                о конфликтующих расписаниях
+            - `schedules`: список времен начала валидных расписаний в
+                формате ISO
+            - `notifications`: строка уведомляющая о результатах
+                операции об отправке уведомлений
+            - `course_id`: ID курса
+            - `schedule_ids`: список ID расписаний
     """
     try:
-        async with session.begin():  # Основная транзакция
-            # Проверяем существование курса с таким же именем
+        async with session.begin():
             existing_course = await session.execute(
                 select(course).filter(course.c.name == course_data.name)
             )
@@ -71,7 +107,6 @@ async def create_course(
             conflicted_schedules = []
             occupied_intervals = {}
 
-            # Проверяем расписания на корректность
             for schedule in schedule_data:
                 if schedule.end_date < schedule.start_date:
                     conflicted_schedules.append(
@@ -100,7 +135,9 @@ async def create_course(
                     conflicted_schedules.append(
                         {
                             **schedule.model_dump(),
-                            "reason": "Time conflict with an already valid schedule"
+                            "reason": (
+                                "Time conflict with an already valid schedule"
+                            ),
                         }
                     )
                 else:
@@ -112,19 +149,20 @@ async def create_course(
                         }
                     )
 
-            # Если нет валидных расписаний, откатываемся
             if not valid_schedules:
                 raise HTTPException(
                     status_code=400,
                     detail="No valid schedules provided"
                 )
 
-            # Добавляем курс
-            query = insert(course).values(**course_data.model_dump()).returning(course.c.id)
+            query = (
+                insert(course)
+                .values(**course_data.model_dump())
+                .returning(course.c.id)
+            )
             result = await session.execute(query)
             course_id = result.scalar_one()
 
-            # Добавляем валидные расписания
             inserted_schedule_ids = []
             schedules = []
             for schedule in valid_schedules:
@@ -143,7 +181,6 @@ async def create_course(
                 )
                 schedules.append(f"{date_time.isoformat()}+05:00")
 
-            # Отправляем уведомления
             if inserted_schedule_ids:
                 logging.error(f"NOTIFICATION - {schedules}")
                 async with httpx.AsyncClient() as client:
@@ -190,20 +227,18 @@ async def create_course(
         )
 
 
-
 @app.get("/courses/{course_id}")
 async def get_course_by_id(
     course_id: int,
     session: AsyncSession=Depends(get_async_session)
 ):
-    
     """
-    Retrieve a course by its ID.
+    Получение описания курса по его ID
 
-    Аргументы:
+    Args:
         course_id (int): ID курса для получения информации
 
-    Возвращает:
+    Returns:
         List[Mapping]: список маппингов, представляющих курс с заданным ID
     """
 
@@ -220,11 +255,11 @@ async def update_course(
     """
     Обновление курса по ID
 
-    Аргументы:
+    Args:
         course_id (int): ID курса для обновления
         course_data (CourseUpdate): данные о курсе для обновления
 
-    Возвращает:
+    Returns:
         None
     """
 
@@ -237,17 +272,18 @@ async def update_course(
     await session.execute(query)
     await session.commit()
 
-@app.get("/courses_by_operator/{operator_id}")
+@app.get("/courses/operator/{operator_id}")
 async def get_course_by_id(
     operator_id: int,
     session: AsyncSession=Depends(get_async_session)
 ):
-    
     """
-    Аргументы:
+    Получение списка курсов по ID оператора
+
+    Args:
         operator_id (int): ID оператора, которому принадлежат курсы.
 
-    Возвращает:
+    Returns:
         List[Mapping]: список маппингов представляющих 
         курсы для заданного оператора.
     """
@@ -264,10 +300,10 @@ async def delete_course(
     """
     Этот эндпоинт удаляет запись о курсе из бд по ID
 
-    Аргументы:
+    Args:
         course_id (int): ID курса, который нужно удалить
 
-    Возвращает:
+    Returns:
         None
     """
     query = delete(course).where(course.c.id == course_id)
@@ -282,10 +318,10 @@ async def get_schedule_for_course(
     """
     Этот эндпоинт возвращает список уникальных дат начала для расписания курса.
 
-    Аргументы:
+    Args:
         course_id (int): ID курса для которого нужно получить расписание
 
-    Возвращает:
+    Returns:
         dict: словарь, содержащий список уникальных дат начала
     """
     query = (
@@ -299,7 +335,7 @@ async def get_schedule_for_course(
     unique_dates = {"start_date": [row[0] for row in result.fetchall()]}
     return unique_dates
 
-@app.get("/courses_schedule/{schedule_id}")
+@app.get("/courses/schedule/{schedule_id}")
 async def get_course_details(
     schedule_id: int,
     session: AsyncSession = Depends(get_async_session)
@@ -307,10 +343,10 @@ async def get_course_details(
     """
     Этот эндпоинт возвращает подробные данные по расписанию с заданным ID.
 
-    Аргументы:
+    Args:
         schedule_id (int): ID расписания для получения деталей по расписанию
 
-    Возвращает:
+    Returns:
         dict: содержащий название курса, начальную дату, конечную дату, 
         начальное время и конечное время словарь
 
@@ -363,7 +399,7 @@ async def get_course_times(
         date (str): дата (в формате 'YYYY-MM-DD'),
         на которую необходимо найти время
 
-    Возвращает:
+    Returns:
         dict: словарь с доступными временами и их id
 
     Raises:
@@ -393,7 +429,7 @@ async def get_course_times(
         ]
     }
 
-@app.get("/courses_schedule_operator/{course_id}")
+@app.get("/courses/schedule/operator/{course_id}")
 async def get_course_times(
     course_id: int, 
     session: AsyncSession = Depends(get_async_session)
@@ -402,10 +438,10 @@ async def get_course_times(
     Соединяет таблицы `course` и `schedule_course` 
     для получения необходимой информации
 
-    Аргументы:
+    Args:
         course_id (int): ID курса, на который нужно получить расписание
 
-    Возвращает:
+    Returns:
         dict: словарь со списком дат и времен начала/окончания курса
 
     Raises:
